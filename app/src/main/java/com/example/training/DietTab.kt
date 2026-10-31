@@ -1,188 +1,276 @@
 package com.example.training
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Модель для КБЖУ
-data class Macros(
-    val calories: Int,
-    val proteins: Int,
-    val fats: Int,
-    val carbs: Int
-)
-
 @Composable
 fun DietTab() {
-    // 1. Состояние календаря
-    val dateFormat = remember { SimpleDateFormat("dd.MM", Locale.getDefault()) }
-    var selectedDate by remember { mutableStateOf(dateFormat.format(Date())) }
+    // --- ЦВЕТА ИЗ ДИЗАЙНА ---
+    val bgColor = Color(0xFF14110E)
+    val textColor = Color.White
+    val accentOrange = Color(0xFFFF8C00)
+    val cardBgColor = Color(0xFF23201D)
 
-    // 2. Имитация базы данных КБЖУ по дням
-    // В реальности это будет приходить с сервера. Сделаем разные значения для примера.
-    val dailyMacros = remember {
-        val today = dateFormat.format(Date())
-        val tomorrow = dateFormat.format(Date(System.currentTimeMillis() + 86400000))
-        mapOf(
-            today to Macros(2000, 150, 60, 200),
-            tomorrow to Macros(1850, 120, 50, 180),
-            // Для остальных дней будет дефолтное значение
-        )
+    // --- КАЛЕНДАРЬ ---
+    val dateList = remember {
+        val dates = mutableListOf<String>()
+        val calendar = Calendar.getInstance()
+        val format = SimpleDateFormat("dd.MM", Locale.getDefault())
+        for (i in 0 until 6) {
+            dates.add(format.format(calendar.time))
+            calendar.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        dates
     }
+    var selectedDate by remember { mutableStateOf(dateList[0]) }
 
-    // Получаем КБЖУ для выбранного дня. Если нет — берем стандартные.
-    val currentMacros = dailyMacros[selectedDate] ?: Macros(2000, 120, 70, 250)
-
-    // 3. Список рецептов
-    val recipes = listOf(
-        "Овсяноблин с курицей",
-        "Салат с тунцом и яйцом",
-        "Гречка с говядиной",
-        "Творожная запеканка",
-        "Куриная грудка с овощами"
+    // --- ДАННЫЕ ДЛЯ ПЛАШЕК ---
+    val macros = listOf(
+        MacroData("Калории", "Введите данные", "ккал"),
+        MacroData("Жиры", "4300", "г"),
+        MacroData("Протеин", "4300", "г"),
+        MacroData("Углеводы", "4300", "г")
     )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(bgColor)
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("Дневник питания", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Вставляем наш новый компонент календаря
-        DateCalendar(
-            selectedDate = selectedDate,
-            onDateSelected = { selectedDate = it }
-        )
-
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Заголовок "Дневной рацион"
-        Text("Дневной рацион", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Плашки КБЖУ
-        // Используем Row с weight, чтобы 4 плашки влезли в один ряд
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // 1. КАЛЕНДАРЬ
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            MacroCard(
-                modifier = Modifier.weight(1f),
-                title = "Калории",
-                value = "${currentMacros.calories}",
-                unit = "ккал",
-                color = MaterialTheme.colorScheme.primaryContainer
-            )
-            MacroCard(
-                modifier = Modifier.weight(1f),
-                title = "Белки",
-                value = "${currentMacros.proteins}",
-                unit = "г",
-                color = MaterialTheme.colorScheme.secondaryContainer
-            )
-            MacroCard(
-                modifier = Modifier.weight(1f),
-                title = "Жиры",
-                value = "${currentMacros.fats}",
-                unit = "г",
-                color = MaterialTheme.colorScheme.tertiaryContainer
-            )
-            MacroCard(
-                modifier = Modifier.weight(1f),
-                title = "Углеводы",
-                value = "${currentMacros.carbs}",
-                unit = "г",
-                color = MaterialTheme.colorScheme.surfaceVariant
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Заголовок "Рецепты"
-        Text("Рецепты", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Серые прямоугольники с названиями блюд
-        recipes.forEach { recipe ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp)
-                    .height(80.dp), // Высота плашки
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.LightGray.copy(alpha = 0.3f) // Серый цвет
-                )
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.CenterStart // Текст слева по центру вертикали
+            items(dateList) { date ->
+                val isSelected = date == selectedDate
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { selectedDate = date } // не забудь import androidx.compose.foundation.clickable
                 ) {
                     Text(
-                        text = recipe,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.DarkGray
+                        text = date,
+                        color = if (isSelected) accentOrange else textColor.copy(alpha = 0.7f),
+                        fontSize = 16.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(2.dp)
+                            .background(if (isSelected) accentOrange else Color.Transparent)
                     )
                 }
             }
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 2. ДНЕВНОЙ РАЦИОН
+        Text(
+            text = "Дневной рацион",
+            color = textColor,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Плашки КБЖУ (горизонтальный скролл, чтобы не сжимались)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(macros) { macro ->
+                MacroCard(
+                    title = macro.title,
+                    value = macro.value,
+                    unit = macro.unit,
+                    bgColor = cardBgColor,
+                    textColor = textColor
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // 3. РЕЦЕПТЫ
+        Text(
+            text = "Рецепты",
+            color = textColor,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Карточки рецептов
+        // (Замени R.drawable.ic_launcher_background на свои картинки еды)
+        RecipeCard(
+            title = "Гречка с молоком",
+            time = "20 мин",
+            imageRes = R.drawable.ic_launcher_background
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        RecipeCard(
+            title = "Салат с лососем",
+            time = "15 мин",
+            imageRes = R.drawable.ic_launcher_background
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
-// Компонент для плашки с КБЖУ (чтобы не дублировать код)
+// Модель для КБЖУ
+data class MacroData(val title: String, val value: String, val unit: String)
+
+// Компонент плашки КБЖУ
 @Composable
 fun MacroCard(
-    modifier: Modifier = Modifier,
     title: String,
     value: String,
     unit: String,
-    color: Color
+    bgColor: Color,
+    textColor: Color
 ) {
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color)
+        modifier = Modifier
+            .width(110.dp)
+            .height(140.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally // Текст по центру
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            // Белый кружок сверху
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+
+            Column {
+                Text(
+                    text = title,
+                    color = textColor.copy(alpha = 0.6f),
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = value,
+                        color = textColor,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (value != "Введите данные") {
+                        Text(
+                            text = unit,
+                            color = textColor.copy(alpha = 0.6f),
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 2.dp, start = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Компонент карточки рецепта
+@Composable
+fun RecipeCard(
+    title: String,
+    time: String,
+    imageRes: Int
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Картинка на фоне
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
             )
-            Text(
-                text = unit,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+
+            // Градиент снизу для читаемости текста
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)),
+                            startY = 300f
+                        )
+                    )
             )
+
+            // Текст поверх картинки
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = time,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp
+                    )
+                }
+            }
         }
     }
 }

@@ -17,15 +17,21 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.util.Log
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     onBackClick: () -> Unit,
     onLoginClick: () -> Unit,
-    onRegisterSuccess: () -> Unit
+    onRegisterSuccess: (String) -> Unit
 ) {
     // Состояния для всех полей
+    var isLoading by remember { mutableStateOf(false) }
+
     var lastName by remember { mutableStateOf("") }
     var firstName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
@@ -158,11 +164,39 @@ fun RegisterScreen(
                 onClick = {
                     if (password != confirmPassword) {
                         errorText = "Пароли не совпадают!"
-                    } else if (password.isEmpty() || phone.isEmpty()) {
+                    } else if (email.isBlank() || password.isBlank()) {
                         errorText = "Заполните обязательные поля"
                     } else {
                         errorText = null
-                        onRegisterSuccess()
+                        isLoading = true
+
+                        val request = RegisterRequest(
+                            firstName = firstName,
+                            lastName = lastName,
+                            email = email,
+                            password = password,
+                            role = "TRAINER"
+                        )
+
+                        RetrofitClient.apiService.register(request).enqueue(object : Callback<Void> {
+                            override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                                isLoading = false
+                                if (response.isSuccessful) {
+                                    Log.d("API_TEST", "Регистрация успешна (пустой ответ), ждем код")
+                                    onRegisterSuccess(email)
+                                } else {
+                                    errorText = "Ошибка регистрации. Проверьте данные."
+                                    // Важно: ошибку (если она есть) сервер шлет в errorBody
+                                    Log.e("API_TEST", "Ошибка: ${response.code()} - ${response.errorBody()?.string()}")
+                                }
+                            }
+
+                            override fun onFailure(call: Call<Void>, t: Throwable) {
+                                isLoading = false
+                                errorText = "Ошибка сети"
+                                Log.e("API_TEST", "Сеть: ${t.message}")
+                            }
+                        })
                     }
                 },
                 modifier = Modifier
@@ -180,11 +214,11 @@ fun RegisterScreen(
                 ),
                 shape = RoundedCornerShape(24.dp)
             ) {
-                Text(
-                    text = "Далее",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Далее", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))

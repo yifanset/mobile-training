@@ -30,6 +30,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    var emailForVerification by remember { mutableStateOf("") }
 
     NavHost(navController = navController, startDestination = "onboarding") {
 
@@ -63,12 +64,25 @@ fun AppNavigation() {
             RegisterScreen(
                 onBackClick = { navController.popBackStack() },
                 onLoginClick = { navController.popBackStack() },
-                // Передаем колбэк для успешной регистрации
-                onRegisterSuccess = {
-                    navController.navigate("main") {
-                        popUpTo("register") { inclusive = true }
-                    }
+                onRegisterSuccess = { email ->
+                    emailForVerification = email // Сохраняем email
+                    navController.navigate("verify") // Идем на экран ввода кода
                 }
+            )
+        }
+
+        // Экран ПОДТВЕРЖДЕНИЯ ПОЧТЫ
+        composable("verify") {
+            VerifyCodeScreen(
+                email = emailForVerification,
+                onVerifySuccess = {
+                    // После успешного подтверждения кидаем на экран входа
+                    // (чтобы пользователь зашел с новым паролем)
+                    navController.navigate("login") {
+                        popUpTo("register") { inclusive = true } // Очищаем стек регистрации
+                    }
+                },
+                onBackClick = { navController.popBackStack() }
             )
         }
 
