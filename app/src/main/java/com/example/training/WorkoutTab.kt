@@ -2,6 +2,8 @@ package com.example.training
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -15,152 +17,217 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.SimpleDateFormat
+import java.util.*
 
-// Модель для дня тренировок
-data class WorkoutDay(
-    val title: String, // Например, "Вторник 18.09"
-    val times: List<String> // Список доступного времени
+// Модель для дня
+data class WorkoutDayData(
+    val dateString: String, // "18.09"
+    val dayOfWeek: String,  // "Пн"
+    val fullDate: Date
 )
 
 @Composable
 fun WorkoutTab() {
-    // Данные для расписания (в реальности будут приходить из базы)
-    val schedule = listOf(
-        WorkoutDay("Вторник 18.09", listOf("16:00", "17:00", "18:00", "20:00")),
-        WorkoutDay("Среда 19.09", listOf("16:00", "17:00", "20:00", "21:00")),
-        WorkoutDay("Четверг 20.09", listOf("16:00", "17:00"))
-    )
-
-    // Состояние для выбранного времени (по умолчанию ничего не выбрано)
-    var selectedTime by remember { mutableStateOf<String?>(null) }
-
-    // Цвета (подбираем близкие к твоему скриншоту)
-    val selectedColor = Color(0xFFFF6B00) // Ярко-оранжевый
-    val unselectedColor = Color(0xFF4A3A30) // Темно-коричневый
+    // --- ЦВЕТА ИЗ ДИЗАЙНА ---
+    val bgColor = Color(0xFF14110E)
     val textColor = Color.White
+    val accentOrange = Color(0xFFFF8C00)
+    val darkCardColor = Color(0xFF23201D)
+
+    // --- ЛОГИКА НЕДЕЛИ ---
+    // Индекс смещения недели (0 - текущая, -1 - прошлая, 1 - следующая)
+    var weekOffset by remember { mutableIntStateOf(0) }
+
+    // Список выбранных дат (храним строки типа "18.09 17:00")
+    var selectedSlots by remember { mutableStateOf(setOf<String>()) }
+
+    val daysOfWeek = remember { listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс") }
+    val availableTimes = listOf("16:00", "17:00", "18:00", "19:00")
+
+    // Функция генерации 7 дней для выбранной недели
+    fun getDaysForWeek(offset: Int): List<WorkoutDayData> {
+        val list = mutableListOf<WorkoutDayData>()
+        val calendar = Calendar.getInstance()
+
+        // Находим понедельник текущей недели
+        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        if (calendar.time.after(Date())) {
+            calendar.add(Calendar.WEEK_OF_YEAR, -1)
+        }
+
+        // Добавляем смещение недель
+        calendar.add(Calendar.WEEK_OF_YEAR, offset)
+
+        val format = SimpleDateFormat("dd.MM", Locale.getDefault())
+        val dayFormat = SimpleDateFormat("EE", Locale("ru")) // "Пн", "Вт"
+
+        for (i in 0 until 7) {
+            list.add(
+                WorkoutDayData(
+                    dateString = format.format(calendar.time),
+                    dayOfWeek = dayFormat.format(calendar.time).replaceFirstChar { it.uppercase() }.substring(0, 2),
+                    fullDate = calendar.time
+                )
+            )
+            calendar.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return list
+    }
+
+    val currentWeekDays = remember(weekOffset) { getDaysForWeek(weekOffset) }
+
+    // Форматирование заголовка недели (например, "14-20 сентября")
+    val weekTitle = remember(weekOffset) {
+        val firstDay = currentWeekDays.first().fullDate
+        val lastDay = currentWeekDays.last().fullDate
+        val monthFormat = SimpleDateFormat("LLLL", Locale("ru"))
+
+        val startDayStr = SimpleDateFormat("d", Locale.getDefault()).format(firstDay)
+        val endDayStr = SimpleDateFormat("d", Locale.getDefault()).format(lastDay)
+        val monthStr = monthFormat.format(lastDay)
+
+        "$startDayStr-$endDayStr $monthStr"
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1E1714)) // Темный фон на весь экран
+            .background(bgColor)
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Заголовок "Запись на тренировку"
+        // ЗАГОЛОВОК
         Text(
             text = "Запись на тренировку",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = textColor
+            color = textColor,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Селектор недели (с обводкой)
+        // СЕЛЕКТОР НЕДЕЛИ
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .background(Color.Transparent, RoundedCornerShape(28.dp))
-                .then(
-                    Modifier.padding(1.dp) // Внутренний отступ для эффекта обводки
-                ),
+                .clip(RoundedCornerShape(28.dp))
+                .border(BorderStroke(1.dp, Color.Gray), RoundedCornerShape(28.dp)),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Используем OutlinedButton для создания рамки
-            OutlinedButton(
-                onClick = { /* Логика переключения недели назад */ },
-                shape = RoundedCornerShape(28.dp),
-                border = BorderStroke(1.dp, Color.Gray),
-                contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(48.dp)
-            ) {
+            IconButton(onClick = { weekOffset-- }) {
                 Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Назад", tint = textColor)
             }
 
             Text(
-                text = "14-20 сентября",
+                text = weekTitle,
                 color = textColor,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Medium
             )
 
-            OutlinedButton(
-                onClick = { /* Логика переключения недели вперед */ },
-                shape = RoundedCornerShape(28.dp),
-                border = BorderStroke(1.dp, Color.Gray),
-                contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(48.dp)
-            ) {
+            IconButton(onClick = { weekOffset++ }) {
                 Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Вперед", tint = textColor)
             }
         }
 
-        // Делаем вид, что селектор это единая плашка (обводка вокруг всего)
-        // В реальности код выше делает кнопки отдельно, но для визуального сходства
-        // можно использовать просто Row с border, но давай оставим функциональные кнопки.
-
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Перебираем дни и выводим их
-        schedule.forEach { day ->
-            Column(modifier = Modifier.fillMaxWidth()) {
+        // СПИСОК ДНЕЙ
+        currentWeekDays.forEach { day ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
                 // Заголовок дня
                 Text(
-                    text = day.title,
+                    text = "${day.dayOfWeek} ${day.dateString}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = textColor,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    color = textColor
                 )
 
-                // Горизонтальная линия-разделитель
-                Divider(color = Color.Gray.copy(alpha = 0.5f), thickness = 1.dp)
+                // Линия
+                Divider(color = Color.Gray.copy(alpha = 0.3f), thickness = 1.dp, modifier = Modifier.padding(vertical = 8.dp))
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Время (горизонтальный скролл, если не влезет)
+                // Время
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(day.times) { time ->
-                        val isSelected = selectedTime == time
+                    items(availableTimes) { time ->
+                        // Уникальный ключ для каждого слота (Дата + Время)
+                        val slotKey = "${day.dateString} $time"
+                        val isSelected = selectedSlots.contains(slotKey)
 
-                        // Используем FilterChip, но кастомизируем цвета
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                // Если нажали на выбранное - отменяем выбор, иначе выбираем
-                                selectedTime = if (isSelected) null else time
-                            },
-                            label = {
-                                Text(
-                                    text = time,
-                                    color = textColor,
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
-                                )
-                            },
-                            shape = RoundedCornerShape(20.dp), // Форма "таблетки"
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = unselectedColor, // Темный фон
-                                selectedContainerColor = selectedColor, // Оранжевый при выборе
-                            ),
-                            border = null // Убираем рамку, если она есть по умолчанию
-                        )
+                        // Кнопка времени
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (isSelected) accentOrange else darkCardColor)
+                                .clickable {
+                                    // Логика добавления/удаления из списка
+                                    selectedSlots = if (isSelected) {
+                                        selectedSlots - slotKey
+                                    } else {
+                                        selectedSlots + slotKey
+                                    }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = time,
+                                color = if (isSelected) Color.Black else textColor,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // КНОПКА "ЗАПИСАТЬСЯ" (появляется, если выбрано >= 1)
+        if (selectedSlots.isNotEmpty()) {
+            Button(
+                onClick = {
+                    // Заглушка
+                    println("Запись на слоты: $selectedSlots")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color(0xFFFFAE25), Color(0xFFFF6417))
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Записаться (${selectedSlots.size})",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

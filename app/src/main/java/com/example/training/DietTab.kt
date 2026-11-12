@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,25 +36,30 @@ fun DietTab() {
     val accentOrange = Color(0xFFFF8C00)
     val cardBgColor = Color(0xFF23201D)
 
-    // --- КАЛЕНДАРЬ ---
-    val dateList = remember {
-        val dates = mutableListOf<String>()
-        val calendar = Calendar.getInstance()
-        val format = SimpleDateFormat("dd.MM", Locale.getDefault())
-        for (i in 0 until 6) {
-            dates.add(format.format(calendar.time))
-            calendar.add(Calendar.DAY_OF_YEAR, 1)
-        }
-        dates
-    }
-    var selectedDate by remember { mutableStateOf(dateList[0]) }
+    // --- БЕСКОНЕЧНЫЙ КАЛЕНДАРЬ ---
+    val totalDays = 10000
+    val centerIndex = totalDays / 2
+    val dateFormat = remember { SimpleDateFormat("dd.MM", Locale.getDefault()) }
 
-    // --- ДАННЫЕ ДЛЯ ПЛАШЕК ---
+    // Начинаем скролл чуть левее центра, чтобы сегодняшняя дата была примерно по центру
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = centerIndex - 2)
+
+    // Выбранная дата (по умолчанию сегодня)
+    var selectedDateString by remember { mutableStateOf(dateFormat.format(Date())) }
+
+    // Функция получения даты по индексу
+    fun getDateForIndex(index: Int): Date {
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_YEAR, index - centerIndex)
+        return calendar.time
+    }
+
+    // --- ДАННЫЕ ДЛЯ ПЛАШЕК (ВСЕ ЗАМЕНЕНО НА X) ---
     val macros = listOf(
-        MacroData("Калории", "Введите данные", "ккал"),
-        MacroData("Жиры", "4300", "г"),
-        MacroData("Протеин", "4300", "г"),
-        MacroData("Углеводы", "4300", "г")
+        MacroData("Калории", "X", "ккал"),
+        MacroData("Жиры", "X", "г"),
+        MacroData("Протеин", "X", "г"),
+        MacroData("Углеводы", "X", "г")
     )
 
     Column(
@@ -65,19 +71,23 @@ fun DietTab() {
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 1. КАЛЕНДАРЬ
+        // 1. БЕСКОНЕЧНЫЙ КАЛЕНДАРЬ
         LazyRow(
+            state = listState,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(dateList) { date ->
-                val isSelected = date == selectedDate
+            items(totalDays) { index ->
+                val date = getDateForIndex(index)
+                val dateString = dateFormat.format(date)
+                val isSelected = dateString == selectedDateString
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.clickable { selectedDate = date } // не забудь import androidx.compose.foundation.clickable
+                    modifier = Modifier.clickable { selectedDateString = dateString }
                 ) {
                     Text(
-                        text = date,
+                        text = dateString,
                         color = if (isSelected) accentOrange else textColor.copy(alpha = 0.7f),
                         fontSize = 16.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -104,7 +114,7 @@ fun DietTab() {
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Плашки КБЖУ (горизонтальный скролл, чтобы не сжимались)
+        // Плашки КБЖУ
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -130,8 +140,6 @@ fun DietTab() {
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Карточки рецептов
-        // (Замени R.drawable.ic_launcher_background на свои картинки еды)
         RecipeCard(
             title = "Гречка с молоком",
             time = "20 мин",
@@ -151,7 +159,7 @@ fun DietTab() {
 // Модель для КБЖУ
 data class MacroData(val title: String, val value: String, val unit: String)
 
-// Компонент плашки КБЖУ
+// Компонент плашки КБЖУ (Логика отображения "X" упрощена)
 @Composable
 fun MacroCard(
     title: String,
@@ -190,26 +198,24 @@ fun MacroCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = value,
+                        text = value, // Теперь здесь всегда "X"
                         color = textColor,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    if (value != "Введите данные") {
-                        Text(
-                            text = unit,
-                            color = textColor.copy(alpha = 0.6f),
-                            fontSize = 10.sp,
-                            modifier = Modifier.padding(bottom = 2.dp, start = 2.dp)
-                        )
-                    }
+                    Text(
+                        text = unit,
+                        color = textColor.copy(alpha = 0.6f),
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(bottom = 2.dp, start = 2.dp)
+                    )
                 }
             }
         }
     }
 }
 
-// Компонент карточки рецепта
+// Компонент карточки рецепта (Без изменений)
 @Composable
 fun RecipeCard(
     title: String,
@@ -223,7 +229,6 @@ fun RecipeCard(
         shape = RoundedCornerShape(16.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Картинка на фоне
             Image(
                 painter = painterResource(id = imageRes),
                 contentDescription = null,
@@ -231,7 +236,6 @@ fun RecipeCard(
                 contentScale = ContentScale.Crop
             )
 
-            // Градиент снизу для читаемости текста
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -243,7 +247,6 @@ fun RecipeCard(
                     )
             )
 
-            // Текст поверх картинки
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)

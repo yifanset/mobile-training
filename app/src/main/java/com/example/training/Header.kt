@@ -19,24 +19,33 @@ fun Header(
     userName: String,
     onProfileClick: () -> Unit
 ) {
+    val bgColor = Color(0xFF14110E)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp), // Небольшой отступ сверху и снизу
+            // 1. ПРОЗРАЧНОСТЬ: Убрали .background(...) (если он был) или задали Color.Transparent
+            .background(bgColor)
+            // 2. ОТСТУПЫ:
+            // padding(horizontal = 16.dp) — отступы по бокам, чтобы аватарка не прилипала к краю
+            // padding(vertical = 12.dp) — отступы сверху и снизу
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Круглая "аватарка" (пока серый круг)
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .clip(CircleShape) // Делаем форму круга
-                .background(Color.Gray) // Серый фон
-                .clickable { onProfileClick() }, // Обработка клика
+                .clip(CircleShape)
+                // Сделал фон аватарки чуть темнее (Color.DarkGray), чтобы он не сливался с общим фоном приложения
+                // Если хочешь оставить ярко-серый, верни Color.Gray
+                .background(Color.DarkGray)
+                .clickable { onProfileClick() },
             contentAlignment = Alignment.Center
         ) {
             // Внутри круга первая буква имени
             Text(
-                text = userName.firstOrNull()?.uppercase() ?: "?", // Берем первую букву
+                text = userName.firstOrNull()?.uppercase() ?: "?",
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
@@ -48,6 +57,7 @@ fun Header(
         // Имя пользователя
         Text(
             text = userName,
+            color = Color.White, // Добавил белый цвет для текста, чтобы он был виден на темной теме
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )

@@ -6,20 +6,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -37,28 +36,32 @@ fun MeasurementsTab() {
     val accentOrange = Color(0xFFFF8C00)
     val cardBgColor = Color(0xFF23201D)
 
-    // --- КАЛЕНДАРЬ ---
-    val dateList = remember {
-        val dates = mutableListOf<String>()
-        val calendar = Calendar.getInstance()
-        val format = SimpleDateFormat("dd.MM", Locale.getDefault())
-        for (i in 0 until 6) {
-            dates.add(format.format(calendar.time))
-            calendar.add(Calendar.DAY_OF_YEAR, 1)
-        }
-        dates
-    }
-    var selectedDate by remember { mutableStateOf(dateList[0]) }
+    // --- БЕСКОНЕЧНЫЙ КАЛЕНДАРЬ ---
+    val totalDays = 10000
+    val centerIndex = totalDays / 2
+    val dateFormat = remember { SimpleDateFormat("dd.MM", Locale.getDefault()) }
 
-    // --- СПИСОК ЗАМЕРОВ ---
-    // (Добавил пару для симметрии сетки, чтобы было 6 штук)
+    // Начинаем скролл чуть левее центра, чтобы сегодняшняя дата была примерно по центру
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = centerIndex - 2)
+
+    // Выбранная дата (по умолчанию сегодня)
+    var selectedDateString by remember { mutableStateOf(dateFormat.format(Date())) }
+
+    // Функция получения даты по индексу
+    fun getDateForIndex(index: Int): Date {
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_YEAR, index - centerIndex)
+        return calendar.time
+    }
+
+    // --- СПИСОК ЗАМЕРОВ (ЗНАЧЕНИЯ ЗАМЕНЕНЫ НА X) ---
     val measurements = listOf(
-        MeasurementData("Талия расслаб.", "65,5", "см", "+1", true),
-        MeasurementData("Бедро", "Введите замер", "", "0", false),
-        MeasurementData("Голень", "55,1", "см", "+1", true),
-        MeasurementData("Талия расслаб.", "65,5", "см", "+1", true),
-        MeasurementData("Бедро", "Введите замер", "", "0", false),
-        MeasurementData("Голень", "55,1", "см", "+1", true)
+        MeasurementData("Талия расслаб.", "X", "см", "X", true),
+        MeasurementData("Бедро", "X", "см", "X", true),
+        MeasurementData("Голень", "X", "см", "X", true),
+        MeasurementData("Талия расслаб.", "X", "см", "X", true),
+        MeasurementData("Бедро", "X", "см", "X", true),
+        MeasurementData("Голень", "X", "см", "X", true)
     )
 
     Column(
@@ -70,19 +73,23 @@ fun MeasurementsTab() {
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 1. КАЛЕНДАРЬ
+        // 1. БЕСКОНЕЧНЫЙ КАЛЕНДАРЬ
         LazyRow(
+            state = listState,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(dateList) { date ->
-                val isSelected = date == selectedDate
+            items(totalDays) { index ->
+                val date = getDateForIndex(index)
+                val dateString = dateFormat.format(date)
+                val isSelected = dateString == selectedDateString
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.clickable { selectedDate = date }
+                    modifier = Modifier.clickable { selectedDateString = dateString }
                 ) {
                     Text(
-                        text = date,
+                        text = dateString,
                         color = if (isSelected) accentOrange else textColor.copy(alpha = 0.7f),
                         fontSize = 16.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -110,7 +117,6 @@ fun MeasurementsTab() {
         Spacer(modifier = Modifier.height(16.dp))
 
         // СЕТКА ЗАМЕРОВ (2 ряда по 3 колонки)
-        // Используем Column и Row для жесткой сетки
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             for (row in 0 until 2) {
                 Row(
@@ -169,8 +175,9 @@ fun MeasurementsTab() {
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Значение прогресса тоже меняем на X
         Text(
-            text = "71,3 КГ",
+            text = "X КГ",
             color = accentOrange,
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold
@@ -235,36 +242,26 @@ fun MeasurementCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = data.value,
+                        text = data.value, // Теперь тут "X"
                         color = textColor,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    if (data.value != "Введите замер") {
-                        Text(
-                            text = data.unit,
-                            color = textColor.copy(alpha = 0.6f),
-                            fontSize = 10.sp,
-                            modifier = Modifier.padding(bottom = 2.dp, start = 2.dp)
-                        )
-                    }
+                    Text(
+                        text = data.unit, // Единица измерения (см)
+                        color = textColor.copy(alpha = 0.6f),
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(bottom = 2.dp, start = 2.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                // Разница (зеленая или красная)
-                if (data.value != "Введите замер") {
-                    Text(
-                        text = if (data.isPositive) "↘ ${data.diff}" else "↗ ${data.diff}",
-                        color = if (data.isPositive) Color(0xFF4CAF50) else Color.Red,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                } else {
-                    Text(
-                        text = data.diff,
-                        color = textColor.copy(alpha = 0.6f),
-                        fontSize = 12.sp
-                    )
-                }
+                // Разница (зеленая или красная). Так как везде "X", цвет выбирается по флагу.
+                Text(
+                    text = if (data.isPositive) "↘ ${data.diff}" else "↗ ${data.diff}",
+                    color = if (data.isPositive) Color(0xFF4CAF50) else Color.Red,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -273,12 +270,10 @@ fun MeasurementCard(
 // КОМПОНЕНТ: ГРАФИК
 @Composable
 fun WeightChart(modifier: Modifier = Modifier) {
-    val textColor = Color.White.copy(alpha = 0.5f)
     val lineColor = Color(0xFFFF8C00)
 
-    // Данные графика (для примера)
+    // Данные графика (для примера оставил линию, чтобы график не был пустым)
     val weights = listOf(75f, 76f, 74f, 73f, 73f, 74f, 71.3f)
-    val labels = listOf("пн", "вт", "ср", "чт", "пт", "сб", "вс")
 
     // Границы оси Y
     val minWeight = 60f
@@ -287,30 +282,22 @@ fun WeightChart(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val width = size.width
         val height = size.height
-        val leftPadding = 80f // Отступ слева под текст оси Y
-        val bottomPadding = 40f // Отступ снизу под дни недели
+        val leftPadding = 80f
+        val bottomPadding = 40f
 
         val chartWidth = width - leftPadding
         val chartHeight = height - bottomPadding
 
-        // 1. Рисуем горизонтальные линии и подписи оси Y
-        val ySteps = 4 // 60, 70, 80, 90
+        // 1. Рисуем горизонтальные линии
+        val ySteps = 4
         for (i in 0..ySteps) {
             val y = chartHeight - (chartHeight / ySteps * i)
-            val weightLabel = (minWeight + (maxWeight - minWeight) / ySteps * i).toInt()
-
-            // Линия
             drawLine(
                 color = Color.DarkGray.copy(alpha = 0.5f),
                 start = Offset(leftPadding, y),
                 end = Offset(width, y),
                 strokeWidth = 2f
             )
-
-            // Текст оси Y (рисуем вручную, так как Canvas не умеет в текст из коробки)
-            // В реальном проекте лучше использовать drawText с TextMeasurer, но для простоты
-            // можно сделать подписи через Row/Column вокруг Canvas.
-            // Здесь для примера просто оставим линии.
         }
 
         // 2. Рисуем линию графика
@@ -318,39 +305,21 @@ fun WeightChart(modifier: Modifier = Modifier) {
         val points = mutableListOf<Offset>()
 
         weights.forEachIndexed { index, weight ->
-            // Вычисляем X (равномерно распределяем по ширине)
             val x = leftPadding + (chartWidth / (weights.size - 1)) * index
-
-            // Вычисляем Y (инвертируем, так как в Canvas 0 - это верх)
             val normalizedWeight = (weight - minWeight) / (maxWeight - minWeight)
             val y = chartHeight - (normalizedWeight * chartHeight)
-
             points.add(Offset(x, y))
         }
 
-        // Строим путь
         points.forEachIndexed { index, point ->
-            if (index == 0) {
-                path.moveTo(point.x, point.y)
-            } else {
-                path.lineTo(point.x, point.y)
-            }
+            if (index == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
         }
 
-        // Рисуем линию
-        drawPath(
-            path = path,
-            color = lineColor,
-            style = Stroke(width = 4f)
-        )
+        drawPath(path = path, color = lineColor, style = Stroke(width = 4f))
 
-        // 3. Рисуем точки на графике
+        // 3. Рисуем точки
         points.forEach { point ->
-            drawCircle(
-                color = lineColor,
-                radius = 6f,
-                center = point
-            )
+            drawCircle(color = lineColor, radius = 6f, center = point)
         }
     }
 }

@@ -44,7 +44,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
     val pages = listOf(
         OnboardingPage(
             R.drawable.screen_1_1,
-            "MyFit",
+            "TrainMate",
             "Сделает твой прогресс в тренировках стабильным и наглядным!"
         ),
         OnboardingPage(
